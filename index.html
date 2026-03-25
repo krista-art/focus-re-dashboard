@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Focus RE — Finance Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f7f7f5;
+      padding: 32px 24px;
+      min-height: 100vh;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 28px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      max-width: 900px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px 22px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      border-left: 5px solid #ccc;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .card.red    { border-left-color: #e03131; }
+    .card.orange { border-left-color: #f76707; }
+    .card.blue   { border-left-color: #1971c2; }
+    .card.green  { border-left-color: #2f9e44; }
+    .card-icon { font-size: 22px; }
+    .card-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #666;
+    }
+    .card-count {
+      font-size: 42px;
+      font-weight: 800;
+      line-height: 1;
+      color: #1a1a1a;
+    }
+    .card-sub {
+      font-size: 12px;
+      color: #aaa;
+      margin-top: 2px;
+    }
+    .error { color: #c00; font-size: 12px; margin-top: 4px; }
+    .updated {
+      margin-top: 24px;
+      font-size: 12px;
+      color: #bbb;
+    }
+  </style>
+</head>
+<body>
+  <h1>Focus RE — Finance Action Items</h1>
+  <p class="subtitle" id="lastUpdated">Loading...</p>
+
+  <div class="grid">
+    <div class="card red">
+      <div class="card-icon">🔴</div>
+      <div class="card-label">Pending Intercompany</div>
+      <div class="card-count" id="count-intercompany">—</div>
+      <div class="card-sub">Transactions needing reconciliation</div>
+    </div>
+    <div class="card orange">
+      <div class="card-icon">💳</div>
+      <div class="card-label">Credit Card Review</div>
+      <div class="card-count" id="count-cc">—</div>
+      <div class="card-sub">Items needing action</div>
+    </div>
+    <div class="card blue">
+      <div class="card-icon">🏦</div>
+      <div class="card-label">Banking Review</div>
+      <div class="card-count" id="count-banking">—</div>
+      <div class="card-sub">Items needing action</div>
+    </div>
+    <div class="card green">
+      <div class="card-icon">📋</div>
+      <div class="card-label">COUPA Reimbursements</div>
+      <div class="card-count" id="count-coupa">—</div>
+      <div class="card-sub">Pending submissions</div>
+    </div>
+  </div>
+
+  <p class="updated" id="fetchTime"></p>
+
+  <script>
+    async function loadData() {
+      try {
+        const res = await fetch('data.json?t=' + Date.now());
+        const data = await res.json();
+
+        document.getElementById('count-intercompany').textContent = data.intercompany ?? '—';
+        document.getElementById('count-cc').textContent = data.credit_card ?? '—';
+        document.getElementById('count-banking').textContent = data.banking ?? '—';
+        document.getElementById('count-coupa').textContent = data.coupa ?? '—';
+
+        if (data.updated_at) {
+          const d = new Date(data.updated_at);
+          document.getElementById('lastUpdated').textContent =
+            'As of ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+            ' at ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+          document.getElementById('fetchTime').textContent = 'Data refreshes every hour via GitHub Actions';
+        }
+      } catch(e) {
+        document.getElementById('lastUpdated').textContent = 'Could not load data — check Notion integration setup';
+      }
+    }
+    loadData();
+  </script>
+</body>
+</html>
