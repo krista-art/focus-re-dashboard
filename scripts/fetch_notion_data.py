@@ -121,16 +121,31 @@ def main():
     banking = query_database(TRANSACTIONS_DB, banking_filter)
     print(f"  → {banking}")
 
+    # ------------------------------------------------------------------
+    # 5. Uncategorized — Category = "Uncategorized" AND Reconciled = false
+    # ------------------------------------------------------------------
+    uncategorized_filter = {
+        "and": [
+            {"property": "Category",   "select":   {"equals": "Uncategorized"}},
+            {"property": "Reconciled", "checkbox": {"equals": False}}
+        ]
+    }
+
     print("Fetching COUPA count...")
     coupa = query_database(TRANSACTIONS_DB, coupa_filter)
     print(f"  → {coupa}")
 
+    print("Fetching Uncategorized count...")
+    uncategorized = query_database(TRANSACTIONS_DB, uncategorized_filter)
+    print(f"  → {uncategorized}")
+
     result = {
-        "intercompany": intercompany,
-        "credit_card":  cc,
-        "banking":      banking,
-        "coupa":        coupa,
-        "updated_at":   datetime.now(timezone.utc).isoformat()
+        "intercompany":  intercompany,
+        "credit_card":   cc,
+        "banking":       banking,
+        "coupa":         coupa,
+        "uncategorized": uncategorized,
+        "updated_at":    datetime.now(timezone.utc).isoformat()
     }
 
     with open("data.json", "w") as f:

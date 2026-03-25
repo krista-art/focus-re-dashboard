@@ -43,6 +43,7 @@
     .card.orange { border-left-color: #f76707; }
     .card.blue   { border-left-color: #1971c2; }
     .card.green  { border-left-color: #2f9e44; }
+    .card.yellow { border-left-color: #f59f00; }
     .card-icon { font-size: 22px; }
     .card-label {
       font-size: 12px;
@@ -99,6 +100,12 @@
       <div class="card-count" id="count-coupa">—</div>
       <div class="card-sub">Pending submissions</div>
     </div>
+    <div class="card yellow">
+      <div class="card-icon">⚠️</div>
+      <div class="card-label">Uncategorized</div>
+      <div class="card-count" id="count-uncategorized">—</div>
+      <div class="card-sub">Transactions needing a category</div>
+    </div>
   </div>
 
   <p class="updated" id="fetchTime"></p>
@@ -113,6 +120,7 @@
         document.getElementById('count-cc').textContent = data.credit_card ?? '—';
         document.getElementById('count-banking').textContent = data.banking ?? '—';
         document.getElementById('count-coupa').textContent = data.coupa ?? '—';
+        document.getElementById('count-uncategorized').textContent = data.uncategorized ?? '—';
 
         if (data.updated_at) {
           const d = new Date(data.updated_at);
