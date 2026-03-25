@@ -4,7 +4,7 @@ Fetches action-item counts from Notion Transactions database
 and writes them to data.json for the Focus RE dashboard.
 
 Required environment variables:
-  NOTION_TOKEN       — your Notion integration token (secret_...)
+  NOTION_TOKEN       — your Notion integration token (ntn_...)
   TRANSACTIONS_DB    — Notion database ID for transactions
 """
 
@@ -23,11 +23,25 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
+# PLACE Status options confirmed from Notion API:
+# "N/A", "Draft", "Submitted", "Accepted", "Reimbursed"
+# "Accepted" and "Reimbursed" = done. Everything else = needs action.
+DONE_STATUSES = ["Accepted", "Reimbursed"]
+
+
+def not_done_filter():
+    """Returns a compound filter: PLACE Status is not Accepted AND not Reimbursed."""
+    return {
+        "and": [
+            {"property": "PLACE Status", "select": {"does_not_equal": status}}
+            for status in DONE_STATUSES
+        ]
+    }
+
 
 def query_database(db_id: str, filter_body: dict) -> int:
-    """Query a Notion database with a filter and return the result count."""
+    """Query a Notion database with a filter and return the total count."""
     url = f"https://api.notion.com/v1/databases/{db_id}/query"
-    payload = json.dumps({"filter": filter_body, "page_size": 100}).encode()
 
     count = 0
     has_more = True
@@ -38,7 +52,12 @@ def query_database(db_id: str, filter_body: dict) -> int:
         if start_cursor:
             body["start_cursor"] = start_cursor
 
-        req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=HEADERS, method="POST")
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(body).encode(),
+            headers=HEADERS,
+            method="POST"
+        )
         try:
             with urllib.request.urlopen(req) as resp:
                 data = json.loads(resp.read())
@@ -55,56 +74,32 @@ def query_database(db_id: str, filter_body: dict) -> int:
 
 def main():
     # ------------------------------------------------------------------
-    # 1. Pending Intercompany — Category = "Intercompany" AND not reconciled
+    # 1. Pending Intercompany — Category = "Intercompany" AND not done
     # ------------------------------------------------------------------
     intercompany_filter = {
         "and": [
-            {
-                "property": "Category",
-                "select": {"equals": "Intercompany"}
-            },
-            {
-                "or": [
-                    {"property": "PLACE Status", "select": {"does_not_equal": "Reconciled"}},
-                    {"property": "PLACE Status", "select": {"is_empty": True}}
-                ]
-            }
+            {"property": "Category", "select": {"equals": "Intercompany"}},
+            *not_done_filter()["and"]
         ]
     }
 
     # ------------------------------------------------------------------
-    # 2. Credit Card — Type = "Credit Card" AND PLACE Status ≠ "Reconciled"
+    # 2. Credit Card — Type = "Credit Card" AND not done
     # ------------------------------------------------------------------
     cc_filter = {
         "and": [
-            {
-                "property": "Type",
-                "select": {"equals": "Credit Card"}
-            },
-            {
-                "or": [
-                    {"property": "PLACE Status", "select": {"does_not_equal": "Reconciled"}},
-                    {"property": "PLACE Status", "select": {"is_empty": True}}
-                ]
-            }
+            {"property": "Type", "select": {"equals": "Credit Card"}},
+            *not_done_filter()["and"]
         ]
     }
 
     # ------------------------------------------------------------------
-    # 3. Banking — Type = "Banking" AND PLACE Status ≠ "Reconciled"
+    # 3. Banking — Type = "Banking" AND not done
     # ------------------------------------------------------------------
     banking_filter = {
         "and": [
-            {
-                "property": "Type",
-                "select": {"equals": "Banking"}
-            },
-            {
-                "or": [
-                    {"property": "PLACE Status", "select": {"does_not_equal": "Reconciled"}},
-                    {"property": "PLACE Status", "select": {"is_empty": True}}
-                ]
-            }
+            {"property": "Type", "select": {"equals": "Banking"}},
+            *not_done_filter()["and"]
         ]
     }
 
