@@ -1,7 +1,7 @@
 {
-  "intercompany": 0,
-  "credit_card": 0,
+  "intercompany": 38,
+  "credit_card": 404,
   "banking": 0,
-  "coupa": 0,
-  "updated_at": "2026-03-25T00:00:00Z"
+  "coupa": 20,
+  "updated_at": "2026-03-25T17:10:20.182360+00:00"
 }
