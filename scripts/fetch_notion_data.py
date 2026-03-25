@@ -6,6 +6,12 @@ and writes them to data.json for the Focus RE dashboard.
 Required environment variables:
   NOTION_TOKEN       — your Notion integration token (ntn_...)
   TRANSACTIONS_DB    — Notion database ID for transactions
+
+Filters based on actual Notion schema:
+  - Intercompany  : Intercompany checkbox = true  AND Reconciled = false
+  - Credit Card   : Card relation is not empty    AND Reconciled = false
+  - Banking       : Card relation is empty        AND Intercompany = false AND Reconciled = false
+  - COUPA         : PLACE Reimbursable = true     AND PLACE Status ≠ "Reimbursed"
 """
 
 import os
@@ -23,24 +29,9 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
-# PLACE Status options confirmed from Notion API:
-# "N/A", "Draft", "Submitted", "Accepted", "Reimbursed"
-# "Accepted" and "Reimbursed" = done. Everything else = needs action.
-DONE_STATUSES = ["Accepted", "Reimbursed"]
-
-
-def not_done_filter():
-    """Returns a compound filter: PLACE Status is not Accepted AND not Reimbursed."""
-    return {
-        "and": [
-            {"property": "PLACE Status", "select": {"does_not_equal": status}}
-            for status in DONE_STATUSES
-        ]
-    }
-
 
 def query_database(db_id: str, filter_body: dict) -> int:
-    """Query a Notion database with a filter and return the total count."""
+    """Query a Notion database with a filter and return the total result count."""
     url = f"https://api.notion.com/v1/databases/{db_id}/query"
 
     count = 0
@@ -74,41 +65,48 @@ def query_database(db_id: str, filter_body: dict) -> int:
 
 def main():
     # ------------------------------------------------------------------
-    # 1. Pending Intercompany — Category = "Intercompany" AND not done
+    # 1. Pending Intercompany
+    #    Intercompany checkbox = true AND Reconciled checkbox = false
     # ------------------------------------------------------------------
     intercompany_filter = {
         "and": [
-            {"property": "Category", "select": {"equals": "Intercompany"}},
-            *not_done_filter()["and"]
+            {"property": "Intercompany", "checkbox": {"equals": True}},
+            {"property": "Reconciled",   "checkbox": {"equals": False}}
         ]
     }
 
     # ------------------------------------------------------------------
-    # 2. Credit Card — Type = "Credit Card" AND not done
+    # 2. Credit Card — linked to a Card record AND not yet reconciled
+    #    Card relation is not empty AND Reconciled = false
     # ------------------------------------------------------------------
     cc_filter = {
         "and": [
-            {"property": "Type", "select": {"equals": "Credit Card"}},
-            *not_done_filter()["and"]
+            {"property": "Card",       "relation": {"is_not_empty": True}},
+            {"property": "Reconciled", "checkbox": {"equals": False}}
         ]
     }
 
     # ------------------------------------------------------------------
-    # 3. Banking — Type = "Banking" AND not done
+    # 3. Banking — no card linked, not intercompany, not reconciled
+    #    Card relation is empty AND Intercompany = false AND Reconciled = false
     # ------------------------------------------------------------------
     banking_filter = {
         "and": [
-            {"property": "Type", "select": {"equals": "Banking"}},
-            *not_done_filter()["and"]
+            {"property": "Card",         "relation": {"is_empty": True}},
+            {"property": "Intercompany", "checkbox": {"equals": False}},
+            {"property": "Reconciled",   "checkbox": {"equals": False}}
         ]
     }
 
     # ------------------------------------------------------------------
-    # 4. COUPA — PLACE Status = "Submitted"
+    # 4. COUPA Pending Reimbursements
+    #    PLACE Reimbursable = true AND PLACE Status ≠ "Reimbursed"
     # ------------------------------------------------------------------
     coupa_filter = {
-        "property": "PLACE Status",
-        "select": {"equals": "Submitted"}
+        "and": [
+            {"property": "PLACE Reimbursable", "checkbox": {"equals": True}},
+            {"property": "PLACE Status",       "select":   {"does_not_equal": "Reimbursed"}}
+        ]
     }
 
     print("Fetching Intercompany count...")
@@ -129,10 +127,10 @@ def main():
 
     result = {
         "intercompany": intercompany,
-        "credit_card": cc,
-        "banking": banking,
-        "coupa": coupa,
-        "updated_at": datetime.now(timezone.utc).isoformat()
+        "credit_card":  cc,
+        "banking":      banking,
+        "coupa":        coupa,
+        "updated_at":   datetime.now(timezone.utc).isoformat()
     }
 
     with open("data.json", "w") as f:
