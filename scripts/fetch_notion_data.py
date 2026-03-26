@@ -91,15 +91,25 @@ def main():
 
     # ------------------------------------------------------------------
     # 3. Credit Card Review
-    #    On a card AND not yet reconciled AND not PLACE AND not intercompany
-    #    (PLACE and intercompany items are counted separately above)
+    #    Total card expenses needing reimbursement:
+    #    (PLACE Reimbursable = true AND Reconciled = false)   ← COUPA items
+    #    OR (Intercompany = true AND Reconciled = false)       ← Intercompany items
+    #    = 35 COUPA + 8 intercompany = 43
     # ------------------------------------------------------------------
     cc_filter = {
-        "and": [
-            {"property": "Card",               "relation":  {"is_not_empty": True}},
-            {"property": "Reconciled",         "checkbox":  {"equals": False}},
-            {"property": "PLACE Reimbursable", "checkbox":  {"equals": False}},
-            {"property": "Intercompany",       "checkbox":  {"equals": False}}
+        "or": [
+            {
+                "and": [
+                    {"property": "PLACE Reimbursable", "checkbox": {"equals": True}},
+                    {"property": "Reconciled",         "checkbox": {"equals": False}}
+                ]
+            },
+            {
+                "and": [
+                    {"property": "Intercompany", "checkbox": {"equals": True}},
+                    {"property": "Reconciled",   "checkbox": {"equals": False}}
+                ]
+            }
         ]
     }
 
