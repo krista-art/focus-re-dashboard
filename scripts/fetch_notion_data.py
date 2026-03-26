@@ -203,22 +203,17 @@ def main():
     # ------------------------------------------------------------------
     print("\nUpdating Pending Count on Credit Card pages...")
     for last4, page_id in CARDS.items():
-        card_filter = {
-            "and": [
-                {"property": "Card", "relation": {"contains": page_id}},
-                {"or": [
-                    {"and": [
-                        {"property": "PLACE Reimbursable", "checkbox": {"equals": True}},
-                        {"property": "Reconciled",         "checkbox": {"equals": False}}
-                    ]},
-                    {"and": [
-                        {"property": "Intercompany", "checkbox": {"equals": True}},
-                        {"property": "Reconciled",   "checkbox": {"equals": False}}
-                    ]}
-                ]}
-            ]
-        }
-        count = query_database(TRANSACTIONS_DB, card_filter)
+        place_filter = {"and": [
+            {"property": "Card",               "relation":  {"contains": page_id}},
+            {"property": "PLACE Reimbursable", "checkbox":  {"equals": True}},
+            {"property": "Reconciled",         "checkbox":  {"equals": False}}
+        ]}
+        interco_filter = {"and": [
+            {"property": "Card",        "relation": {"contains": page_id}},
+            {"property": "Intercompany","checkbox": {"equals": True}},
+            {"property": "Reconciled",  "checkbox": {"equals": False}}
+        ]}
+        count = query_database(TRANSACTIONS_DB, place_filter) + query_database(TRANSACTIONS_DB, interco_filter)
         print(f"  Card {last4}: {count} pending → updating Notion...")
         update_page_property(page_id, "Pending Count", count)
         print(f"  ✅ Card {last4} updated")
