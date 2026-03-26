@@ -199,14 +199,23 @@ def main():
 
     # ------------------------------------------------------------------
     # 6. Update Pending Count on each Credit Card page in Notion
-    #    Count = all unreconciled transactions linked to that card
+    #    Count = PLACE Reimbursable OR Intercompany, both unreconciled
     # ------------------------------------------------------------------
     print("\nUpdating Pending Count on Credit Card pages...")
     for last4, page_id in CARDS.items():
         card_filter = {
             "and": [
-                {"property": "Card",       "relation":  {"contains": page_id}},
-                {"property": "Reconciled", "checkbox":  {"equals": False}}
+                {"property": "Card", "relation": {"contains": page_id}},
+                {"or": [
+                    {"and": [
+                        {"property": "PLACE Reimbursable", "checkbox": {"equals": True}},
+                        {"property": "Reconciled",         "checkbox": {"equals": False}}
+                    ]},
+                    {"and": [
+                        {"property": "Intercompany", "checkbox": {"equals": True}},
+                        {"property": "Reconciled",   "checkbox": {"equals": False}}
+                    ]}
+                ]}
             ]
         }
         count = query_database(TRANSACTIONS_DB, card_filter)
