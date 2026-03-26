@@ -2,16 +2,19 @@
 """
 Fetches action-item counts from Notion Transactions database
 and writes them to data.json for the Focus RE dashboard.
+
 Required environment variables:
   NOTION_TOKEN       — your Notion integration token (ntn_...)
   TRANSACTIONS_DB    — Notion database ID for transactions
-Filters based on actual Notion schema:
-  - Intercompany  : Intercompany checkbox = true  AND Reconciled = false
-  - Credit Card   : (PLACE Reimbursable = true AND PLACE Status ≠ "Reimbursed")
-                    OR (Intercompany = true AND Reconciled = false)
-  - Banking       : Card relation is empty AND Intercompany = false AND Reconciled = false
-  - COUPA         : PLACE Reimbursable = true AND PLACE Status ≠ "Reimbursed"
+
+Filters (no overlap between cards):
+  - COUPA         : PLACE Reimbursable = true AND PLACE Status not in (Reimbursed, Accepted)
+  - Intercompany  : Intercompany = true AND Reconciled = false
+  - Credit Card   : Card not empty AND Reconciled = false AND PLACE Reimbursable = false AND Intercompany = false
+  - Banking       : Card empty AND Intercompany = false AND Reconciled = false AND PLACE Reimbursable = false
+  - Uncategorized : Category = "Uncategorized" AND Reconciled = false
 """
+
 import os
 import json
 import urllib.request
@@ -27,15 +30,20 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
+
 def query_database(db_id: str, filter_body: dict) -> int:
+    """Query a Notion database with a filter and return the total result count."""
     url = f"https://api.notion.com/v1/databases/{db_id}/query"
+
     count = 0
     has_more = True
     start_cursor = None
+
     while has_more:
         body = {"filter": filter_body, "page_size": 100}
         if start_cursor:
             body["start_cursor"] = start_cursor
+
         req = urllib.request.Request(
             url,
             data=json.dumps(body).encode(),
@@ -48,13 +56,32 @@ def query_database(db_id: str, filter_body: dict) -> int:
         except urllib.error.HTTPError as e:
             print(f"Notion API error {e.code}: {e.read().decode()}")
             raise
+
         count += len(data.get("results", []))
         has_more = data.get("has_more", False)
         start_cursor = data.get("next_cursor")
+
     return count
 
-def main():
 
+def main():
+    # ------------------------------------------------------------------
+    # 1. COUPA Pending Reimbursements
+    #    PLACE Reimbursable = true AND PLACE Status not in (Reimbursed, Accepted)
+    #    These are submitted to PLACE but not yet paid back
+    # ------------------------------------------------------------------
+    coupa_filter = {
+        "and": [
+            {"property": "PLACE Reimbursable", "checkbox": {"equals": True}},
+            {"property": "PLACE Status", "select": {"does_not_equal": "Reimbursed"}},
+            {"property": "PLACE Status", "select": {"does_not_equal": "Accepted"}}
+        ]
+    }
+
+    # ------------------------------------------------------------------
+    # 2. Pending Intercompany
+    #    Intercompany = true AND Reconciled = false
+    # ------------------------------------------------------------------
     intercompany_filter = {
         "and": [
             {"property": "Intercompany", "checkbox": {"equals": True}},
@@ -62,44 +89,46 @@ def main():
         ]
     }
 
+    # ------------------------------------------------------------------
+    # 3. Credit Card Review
+    #    On a card AND not yet reconciled AND not PLACE AND not intercompany
+    #    (PLACE and intercompany items are counted separately above)
+    # ------------------------------------------------------------------
     cc_filter = {
-        "or": [
-            {
-                "and": [
-                    {"property": "PLACE Reimbursable", "checkbox": {"equals": True}},
-                    {"property": "PLACE Status",       "select":   {"does_not_equal": "Reimbursed"}}
-                ]
-            },
-            {
-                "and": [
-                    {"property": "Intercompany", "checkbox": {"equals": True}},
-                    {"property": "Reconciled",   "checkbox": {"equals": False}}
-                ]
-            }
+        "and": [
+            {"property": "Card",               "relation":  {"is_not_empty": True}},
+            {"property": "Reconciled",         "checkbox":  {"equals": False}},
+            {"property": "PLACE Reimbursable", "checkbox":  {"equals": False}},
+            {"property": "Intercompany",       "checkbox":  {"equals": False}}
         ]
     }
 
+    # ------------------------------------------------------------------
+    # 4. Banking Review
+    #    No card, not intercompany, not PLACE, not reconciled
+    # ------------------------------------------------------------------
     banking_filter = {
         "and": [
-            {"property": "Card",         "relation": {"is_empty": True}},
-            {"property": "Intercompany", "checkbox": {"equals": False}},
-            {"property": "Reconciled",   "checkbox": {"equals": False}}
+            {"property": "Card",               "relation":  {"is_empty": True}},
+            {"property": "Intercompany",       "checkbox":  {"equals": False}},
+            {"property": "PLACE Reimbursable", "checkbox":  {"equals": False}},
+            {"property": "Reconciled",         "checkbox":  {"equals": False}}
         ]
     }
 
-    coupa_filter = {
-        "and": [
-            {"property": "PLACE Reimbursable", "checkbox": {"equals": True}},
-            {"property": "PLACE Status",       "select":   {"does_not_equal": "Reimbursed"}}
-        ]
-    }
-
+    # ------------------------------------------------------------------
+    # 5. Uncategorized — Category = "Uncategorized" AND Reconciled = false
+    # ------------------------------------------------------------------
     uncategorized_filter = {
         "and": [
             {"property": "Category",   "select":   {"equals": "Uncategorized"}},
             {"property": "Reconciled", "checkbox": {"equals": False}}
         ]
     }
+
+    print("Fetching COUPA count...")
+    coupa = query_database(TRANSACTIONS_DB, coupa_filter)
+    print(f"  → {coupa}")
 
     print("Fetching Intercompany count...")
     intercompany = query_database(TRANSACTIONS_DB, intercompany_filter)
@@ -112,10 +141,6 @@ def main():
     print("Fetching Banking count...")
     banking = query_database(TRANSACTIONS_DB, banking_filter)
     print(f"  → {banking}")
-
-    print("Fetching COUPA count...")
-    coupa = query_database(TRANSACTIONS_DB, coupa_filter)
-    print(f"  → {coupa}")
 
     print("Fetching Uncategorized count...")
     uncategorized = query_database(TRANSACTIONS_DB, uncategorized_filter)
@@ -134,6 +159,7 @@ def main():
         json.dump(result, f, indent=2)
 
     print(f"\n✅ data.json written: {result}")
+
 
 if __name__ == "__main__":
     main()
