@@ -30,50 +30,68 @@
       max-width: 1100px;
     }
     .card {
-      background: #252525;
       border-radius: 12px;
-      padding: 20px 22px;
-      box-shadow: 0 1px 8px rgba(0,0,0,0.4);
-      border-left: 5px solid #333;
+      padding: 20px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
     }
-    .card.red    { border-left-color: #e03131; }
-    .card.orange { border-left-color: #f76707; }
-    .card.blue   { border-left-color: #1971c2; }
-    .card.green  { border-left-color: #2f9e44; }
-    .card.yellow { border-left-color: #f59f00; }
-    .card-icon { font-size: 22px; }
+    .card.red    { background: #2a1a1a; border: 1px solid #5c2323; }
+    .card.orange { background: #2a1e10; border: 1px solid #7a4a10; }
+    .card.green  { background: #162516; border: 1px solid #2d5c2d; }
+    .card.purple { background: #1e1a2a; border: 1px solid #4a3a7a; }
+    .card.gray   { background: #1e1e1e; border: 1px solid #444; }
+    .card-icon { font-size: 24px; margin-bottom: 10px; }
     .card-label {
       font-size: 12px;
       font-weight: 600;
+      color: #999;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #888;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
     }
     .card-count {
       font-size: 42px;
-      font-weight: 800;
-      line-height: 1;
+      font-weight: 700;
       color: #fff;
+      line-height: 1;
+      margin-bottom: 8px;
     }
+    .card-count.zero { color: #555; }
     .card-sub {
-      font-size: 12px;
-      color: #555;
-      margin-top: 2px;
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 14px;
     }
-    .error { color: #f55; font-size: 12px; margin-top: 4px; }
+    .card-breakdown {
+      margin-top: auto;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 12px;
+    }
+    .breakdown-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: #888;
+      padding: 3px 0;
+    }
+    .breakdown-row .bd-label { flex: 1; }
+    .breakdown-row .bd-count {
+      font-weight: 600;
+      color: #bbb;
+      font-size: 12px;
+    }
     .updated {
       margin-top: 24px;
-      font-size: 12px;
+      font-size: 11px;
       color: #444;
+      max-width: 1100px;
     }
   </style>
 </head>
 <body>
-  <h1>Focus RE — Finance Action Items</h1>
-  <p class="subtitle" id="lastUpdated">Loading...</p>
+  <h1>Focus RE — Finance Dashboard</h1>
+  <p class="subtitle" id="updated-at">Loading...</p>
 
   <div class="grid">
     <div class="card red">
@@ -82,58 +100,94 @@
       <div class="card-count" id="count-intercompany">—</div>
       <div class="card-sub">Transactions needing reconciliation</div>
     </div>
+
     <div class="card orange">
       <div class="card-icon">💳</div>
       <div class="card-label">Credit Card Review</div>
       <div class="card-count" id="count-cc">—</div>
       <div class="card-sub">Items needing action</div>
+      <div class="card-breakdown" id="cc-breakdown">
+        <div class="breakdown-row">
+          <span class="bd-label" id="label-9197">Chase Ink Unlimited (...9197)</span>
+          <span class="bd-count" id="pending-9197">—</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="bd-label" id="label-1678">Chase Ink (...1678)</span>
+          <span class="bd-count" id="pending-1678">—</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="bd-label" id="label-1006">AMEX (...1006)</span>
+          <span class="bd-count" id="pending-1006">—</span>
+        </div>
+      </div>
     </div>
-    <div class="card blue">
-      <div class="card-icon">🏦</div>
-      <div class="card-label">Banking Review</div>
-      <div class="card-count" id="count-banking">—</div>
-      <div class="card-sub">Items needing action</div>
-    </div>
+
     <div class="card green">
       <div class="card-icon">📋</div>
       <div class="card-label">COUPA Reimbursements</div>
       <div class="card-count" id="count-coupa">—</div>
       <div class="card-sub">Pending submissions</div>
     </div>
-    <div class="card yellow">
+
+    <div class="card purple">
+      <div class="card-icon">💼</div>
+      <div class="card-label">Other Reimbursements</div>
+      <div class="card-count" id="count-other" class="zero">—</div>
+      <div class="card-sub">Personal reimbursements pending</div>
+    </div>
+
+    <div class="card gray">
       <div class="card-icon">⚠️</div>
       <div class="card-label">Uncategorized</div>
       <div class="card-count" id="count-uncategorized">—</div>
-      <div class="card-sub">Transactions needing a category</div>
+      <div class="card-sub">Transactions needing category</div>
     </div>
   </div>
 
-  <p class="updated" id="fetchTime"></p>
+  <p class="updated" id="last-updated"></p>
 
   <script>
-    async function loadData() {
-      try {
-        const res = await fetch('data.json?t=' + Date.now());
-        const data = await res.json();
+    fetch('data.json?t=' + Date.now())
+      .then(r => r.json())
+      .then(data => {
+        function setCount(id, val) {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.textContent = Math.round(val);
+          if (val === 0) el.classList.add('zero');
+        }
 
-        document.getElementById('count-intercompany').textContent = data.intercompany ?? '—';
-        document.getElementById('count-cc').textContent = data.credit_card ?? '—';
-        document.getElementById('count-banking').textContent = data.banking ?? '—';
-        document.getElementById('count-coupa').textContent = data.coupa ?? '—';
-        document.getElementById('count-uncategorized').textContent = data.uncategorized ?? '—';
+        setCount('count-intercompany', data.intercompany || 0);
+        setCount('count-cc', data.credit_card || 0);
+        setCount('count-coupa', data.coupa || 0);
+        setCount('count-other', data.other_reimbursements || 0);
+        setCount('count-uncategorized', data.uncategorized || 0);
+
+        if (data.cards) {
+          ['9197','1678','1006'].forEach(card => {
+            const cd = data.cards[card];
+            if (cd) {
+              const labelEl = document.getElementById('label-' + card);
+              const countEl = document.getElementById('pending-' + card);
+              if (labelEl) labelEl.textContent = cd.label || card;
+              if (countEl) {
+                countEl.textContent = Math.round(cd.pending || 0);
+                if (!cd.pending) countEl.style.color = '#555';
+              }
+            }
+          });
+        }
 
         if (data.updated_at) {
           const d = new Date(data.updated_at);
-          document.getElementById('lastUpdated').textContent =
-            'As of ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
-            ' at ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-          document.getElementById('fetchTime').textContent = 'Data refreshes every hour via GitHub Actions';
+          const formatted = d.toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) + ' at ' + d.toLocaleTimeString('en-US', {hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+          document.getElementById('updated-at').textContent = 'Last updated: ' + formatted;
+          document.getElementById('last-updated').textContent = '';
         }
-      } catch(e) {
-        document.getElementById('lastUpdated').textContent = 'Could not load data — check Notion integration setup';
-      }
-    }
-    loadData();
+      })
+      .catch(err => {
+        document.getElementById('updated-at').textContent = 'Unable to load data';
+      });
   </script>
 </body>
 </html>
