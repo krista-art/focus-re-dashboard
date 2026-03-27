@@ -12,102 +12,34 @@
       padding: 32px 24px;
       min-height: 100vh;
     }
-    h1 {
-      font-size: 22px;
-      font-weight: 700;
-      color: #fff;
-      margin-bottom: 6px;
-    }
-    .subtitle {
-      font-size: 13px;
-      color: #666;
-      margin-bottom: 28px;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 20px;
-      max-width: 1100px;
-    }
-    .card {
-      border-radius: 12px;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-    }
+    h1 { font-size: 22px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+    .subtitle { font-size: 13px; color: #666; margin-bottom: 28px; }
+    .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; max-width: 1100px; }
+    .card { border-radius: 12px; padding: 20px; display: flex; flex-direction: column; }
     .card.red    { background: #2a1a1a; border: 1px solid #5c2323; }
     .card.orange { background: #2a1e10; border: 1px solid #7a4a10; }
     .card.green  { background: #162516; border: 1px solid #2d5c2d; }
     .card.purple { background: #1e1a2a; border: 1px solid #4a3a7a; }
     .card.gray   { background: #1e1e1e; border: 1px solid #444; }
     .card-icon { font-size: 24px; margin-bottom: 10px; }
-    .card-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: #999;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 8px;
-    }
-    .card-count {
-      font-size: 42px;
-      font-weight: 700;
-      color: #fff;
-      line-height: 1;
-      margin-bottom: 8px;
-    }
+    .card-label { font-size: 12px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .card-count { font-size: 42px; font-weight: 700; color: #fff; line-height: 1; margin-bottom: 8px; }
     .card-count.zero { color: #555; }
-    .card-sub {
-      font-size: 11px;
-      color: #666;
-      margin-bottom: 14px;
-    }
-    .card-breakdown {
-      margin-top: auto;
-      padding-top: 12px;
-      border-top: 1px solid rgba(255,255,255,0.07);
-    }
-    .breakdown-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 11px;
-      color: #888;
-      padding: 3px 0;
-    }
+    .card-sub { font-size: 11px; color: #666; margin-bottom: 14px; }
+    .card-breakdown { margin-top: auto; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.07); }
+    .breakdown-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #888; padding: 3px 0; }
     .breakdown-row .bd-label { flex: 1; }
-    .breakdown-row .bd-count {
-      font-weight: 600;
-      color: #bbb;
-      font-size: 12px;
-    }
-    .breakdown-row .bd-amount {
-      font-size: 10px;
-      color: #777;
-      margin-left: 6px;
-    }
-    a.bd-link {
-      color: #888;
-      text-decoration: none;
-    }
-    a.bd-link:hover {
-      color: #bbb;
-      text-decoration: underline;
-    }
-    .updated {
-      margin-top: 24px;
-      font-size: 11px;
-      color: #444;
-      max-width: 1100px;
-    }
+    .breakdown-row .bd-count { font-weight: 600; color: #bbb; font-size: 12px; }
+    .breakdown-row .bd-amount { font-size: 10px; color: #777; margin-left: 6px; }
+    a.bd-link { color: #888; text-decoration: none; }
+    a.bd-link:hover { color: #bbb; text-decoration: underline; }
+    .updated { margin-top: 24px; font-size: 11px; color: #444; max-width: 1100px; }
   </style>
 </head>
 <body>
   <h1>Focus RE — Finance Dashboard</h1>
   <p class="subtitle" id="last-updated">Loading...</p>
-
   <div class="grid">
-
     <!-- Card 1: Credit Card -->
     <div class="card orange">
       <div class="card-icon">💳</div>
@@ -115,21 +47,11 @@
       <div class="card-count" id="count-cc">—</div>
       <div class="card-sub">Items needing action</div>
       <div class="card-breakdown" id="cc-breakdown">
-        <div class="breakdown-row">
-          <span class="bd-label" id="label-9197">Chase Ink Unlimited (...9197)</span>
-          <span class="bd-count" id="pending-9197">—</span>
-        </div>
-        <div class="breakdown-row">
-          <span class="bd-label" id="label-1678">Chase Ink (...1678)</span>
-          <span class="bd-count" id="pending-1678">—</span>
-        </div>
-        <div class="breakdown-row">
-          <span class="bd-label" id="label-1006">AMEX (...1006)</span>
-          <span class="bd-count" id="pending-1006">—</span>
-        </div>
+        <div class="breakdown-row"><span class="bd-label" id="label-9197">Chase Ink Unlimited (...9197)</span><span class="bd-count" id="pending-9197">—</span></div>
+        <div class="breakdown-row"><span class="bd-label" id="label-1678">Chase Ink (...1678)</span><span class="bd-count" id="pending-1678">—</span></div>
+        <div class="breakdown-row"><span class="bd-label" id="label-1006">AMEX (...1006)</span><span class="bd-count" id="pending-1006">—</span></div>
       </div>
     </div>
-
     <!-- Card 2: Intercompany -->
     <div class="card red">
       <div class="card-icon">🔴</div>
@@ -138,15 +60,14 @@
       <div class="card-sub">Transactions needing reconciliation</div>
       <div class="card-breakdown" id="interco-breakdown"></div>
     </div>
-
     <!-- Card 3: COUPA -->
     <div class="card green">
       <div class="card-icon">📋</div>
       <div class="card-label">COUPA Reimbursements</div>
       <div class="card-count" id="count-coupa">—</div>
       <div class="card-sub">Pending submissions</div>
+      <div class="card-breakdown" id="coupa-breakdown"></div>
     </div>
-
     <!-- Card 4: Other Reimbursements -->
     <div class="card purple">
       <div class="card-icon">💼</div>
@@ -155,7 +76,6 @@
       <div class="card-sub">Personal reimbursements pending</div>
       <div class="card-breakdown" id="reimb-breakdown"></div>
     </div>
-
     <!-- Card 5: Uncategorized -->
     <div class="card gray">
       <div class="card-icon">❓</div>
@@ -164,11 +84,8 @@
       <div class="card-sub">Need review & categorization</div>
       <div class="card-breakdown" id="uncat-breakdown"></div>
     </div>
-
   </div>
-
   <p class="updated" id="updated-at"></p>
-
   <script>
     fetch('data.json', {cache: 'no-cache'})
       .then(r => r.json())
@@ -179,90 +96,69 @@
           el.textContent = Math.round(val);
           if (val === 0) el.classList.add('zero');
         }
-
         setCount('count-intercompany', data.intercompany || 0);
         setCount('count-cc', data.credit_card || 0);
         setCount('count-coupa', data.coupa || 0);
         setCount('count-other', data.other_reimbursements || 0);
         setCount('count-uncategorized', data.uncategorized || 0);
-
-        // Credit Card breakdown
+        // CC breakdown
         if (data.cards) {
           ['9197','1678','1006'].forEach(card => {
             const cd = data.cards[card];
             if (cd) {
-              const labelEl = document.getElementById('label-' + card);
-              const countEl = document.getElementById('pending-' + card);
-              if (labelEl) labelEl.textContent = cd.label || card;
-              if (countEl) {
-                countEl.textContent = Math.round(cd.pending || 0);
-                if (!cd.pending) countEl.style.color = '#555';
-              }
+              const lEl = document.getElementById('label-' + card);
+              const cEl = document.getElementById('pending-' + card);
+              if (lEl) lEl.textContent = cd.label || card;
+              if (cEl) { cEl.textContent = Math.round(cd.pending || 0); if (!cd.pending) cEl.style.color = '#555'; }
             }
           });
         }
-
+        // COUPA breakdown by card
+        if (data.cards) {
+          const bd = document.getElementById('coupa-breakdown');
+          if (bd) { bd.innerHTML = ''; ['9197','1678','1006'].forEach(card => { const cd = data.cards[card]; if (cd && cd.coupa > 0) { const row = document.createElement('div'); row.className = 'breakdown-row'; row.innerHTML = `<span class="bd-label">${cd.label}</span><span class="bd-count">${cd.coupa}</span>`; bd.appendChild(row); } }); }
+        }
         // Intercompany entity breakdown
         if (data.entities && data.entities.length) {
           const bd = document.getElementById('interco-breakdown');
           bd.innerHTML = '';
-          data.entities
-            .filter(e => e.pending > 0)
-            .sort((a, b) => b.pending - a.pending)
-            .forEach(e => {
-              const row = document.createElement('div');
-              row.className = 'breakdown-row';
-              const label = e.url
-                ? `<a href="${e.url}" target="_blank" class="bd-label bd-link">${e.label}</a>`
-                : `<span class="bd-label">${e.label}</span>`;
-              row.innerHTML = `${label}<span class="bd-count">${e.pending}</span>`;
-              bd.appendChild(row);
-            });
+          data.entities.filter(e => e.pending > 0).sort((a,b) => b.pending-a.pending).forEach(e => {
+            const row = document.createElement('div'); row.className = 'breakdown-row';
+            const label = e.url ? `<a href="${e.url}" target="_blank" class="bd-label bd-link">${e.label}</a>` : `<span class="bd-label">${e.label}</span>`;
+            row.innerHTML = label + `<span class="bd-count">${e.pending}</span>`;
+            bd.appendChild(row);
+          });
         }
-
-        // Other Reimbursements breakdown
+        // Reimbursements breakdown
         if (data.reimbursements) {
           const bd = document.getElementById('reimb-breakdown');
           bd.innerHTML = '';
           Object.values(data.reimbursements).forEach(r => {
             if (!r.pending) return;
-            const row = document.createElement('div');
-            row.className = 'breakdown-row';
-            const label = r.url
-              ? `<a href="${r.url}" target="_blank" class="bd-label bd-link">${r.label}</a>`
-              : `<span class="bd-label">${r.label}</span>`;
+            const row = document.createElement('div'); row.className = 'breakdown-row';
+            const label = r.url ? `<a href="${r.url}" target="_blank" class="bd-label bd-link">${r.label}</a>` : `<span class="bd-label">${r.label}</span>`;
             const amt = r.amount ? `<span class="bd-amount">$${r.amount.toFixed(2)}</span>` : '';
-            row.innerHTML = `${label}<span class="bd-count">${r.pending}${amt}</span>`;
+            row.innerHTML = label + `<span class="bd-count">${r.pending}${amt}</span>`;
             bd.appendChild(row);
           });
         }
-
-        // Uncategorized breakdown (cards with uncategorized > 0)
+        // Uncategorized breakdown
         if (data.cards) {
           const bd = document.getElementById('uncat-breakdown');
           bd.innerHTML = '';
-          Object.values(data.cards)
-            .filter(cd => cd.uncategorized > 0)
-            .sort((a, b) => b.uncategorized - a.uncategorized)
-            .forEach(cd => {
-              const row = document.createElement('div');
-              row.className = 'breakdown-row';
-              row.innerHTML = `<span class="bd-label">${cd.label}</span><span class="bd-count">${cd.uncategorized}</span>`;
-              bd.appendChild(row);
-            });
+          Object.values(data.cards).filter(cd => cd.uncategorized > 0).sort((a,b) => b.uncategorized-a.uncategorized).forEach(cd => {
+            const row = document.createElement('div'); row.className = 'breakdown-row';
+            row.innerHTML = `<span class="bd-label">${cd.label}</span><span class="bd-count">${cd.uncategorized}</span>`;
+            bd.appendChild(row);
+          });
         }
-
-        // Updated timestamp
         if (data.updated_at) {
           const d = new Date(data.updated_at);
-          const formatted = d.toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) + ' at ' + d.toLocaleTimeString('en-US', {hour:'numeric',minute:'2-digit',timeZoneName:'short'});
-          document.getElementById('updated-at').textContent = 'Last updated: ' + formatted;
+          const fmt = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' at '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+          document.getElementById('updated-at').textContent = 'Last updated: ' + fmt;
           document.getElementById('last-updated').textContent = '';
         }
-      })
-      .catch(err => {
-        document.getElementById('updated-at').textContent = 'Unable to load data';
-      });
+      }).catch(() => { document.getElementById('updated-at').textContent = 'Unable to load data'; });
   </script>
 </body>
 </html>
