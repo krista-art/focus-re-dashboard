@@ -149,16 +149,6 @@ def main():
     for last4, page_id in CARDS.items():
         print(f"Fetching totals for card ...{last4}...")
 
-        # Total pending (all unreconciled) for this card
-        card_all_filter = {
-            "and": [
-                {"property": "Card",       "relation": {"contains": page_id}},
-                {"property": "Reconciled", "checkbox": {"equals": False}},
-            ]
-        }
-        total = query_database(TRANSACTIONS_DB, card_all_filter)
-        print(f"  total   -> {total}")
-
         # Intercompany sub-count for this card
         card_interco_filter = {
             "and": [
@@ -196,12 +186,12 @@ def main():
 
         cards_data[last4] = {
             "label":         CARD_LABELS.get(last4, f"Card ...{last4}"),
-            "pending":       total,
+            "pending":       interco + coupa_card,
             "interco":       interco,
             "coupa":         coupa_card,
             "uncategorized": uncat,
         }
-        cc_total += total
+        cc_total += (interco + coupa_card)
 
     print(f"CC total: {cc_total}")
 
