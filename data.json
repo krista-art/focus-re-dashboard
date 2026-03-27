@@ -3,12 +3,16 @@
   "credit_card": 151,
   "banking": 0,
   "coupa": 56,
-  "other_reimbursements": 0,
+  "other_reimbursements": 5,
   "uncategorized": 2,
   "cards": {
     "9197": {"label": "Chase Ink Unlimited (...9197)", "pending": 43, "interco": 8, "coupa": 35, "uncategorized": 0},
     "1678": {"label": "Chase Ink (...1678)", "pending": 39, "interco": 26, "coupa": 13, "uncategorized": 2},
     "1006": {"label": "AMEX (...1006)", "pending": 69, "interco": 61, "coupa": 8, "uncategorized": 0}
+  },
+  "reimbursements": {
+    "russ": {"label": "Russ Putterman", "pending": 2, "amount": 661.80},
+    "matt": {"label": "Matt Lenner", "pending": 3, "amount": 975.63}
   },
   "updated_at": "2026-03-27T00:30:00.000000+00:00"
 }
