@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Focus RE — Finance Dashboard</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -64,8 +64,8 @@
     }
     .card-breakdown {
       margin-top: auto;
-      border-top: 1px solid rgba(255,255,255,0.08);
       padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.07);
     }
     .breakdown-row {
       display: flex;
@@ -81,6 +81,19 @@
       color: #bbb;
       font-size: 12px;
     }
+    .breakdown-row .bd-amount {
+      font-size: 10px;
+      color: #777;
+      margin-left: 6px;
+    }
+    a.bd-link {
+      color: #888;
+      text-decoration: none;
+    }
+    a.bd-link:hover {
+      color: #bbb;
+      text-decoration: underline;
+    }
     .updated {
       margin-top: 24px;
       font-size: 11px;
@@ -91,16 +104,11 @@
 </head>
 <body>
   <h1>Focus RE — Finance Dashboard</h1>
-  <p class="subtitle" id="updated-at">Loading...</p>
+  <p class="subtitle" id="last-updated">Loading...</p>
 
   <div class="grid">
-    <div class="card red">
-      <div class="card-icon">🔴</div>
-      <div class="card-label">Pending Intercompany</div>
-      <div class="card-count" id="count-intercompany">—</div>
-      <div class="card-sub">Transactions needing reconciliation</div>
-    </div>
 
+    <!-- Card 1: Credit Card -->
     <div class="card orange">
       <div class="card-icon">💳</div>
       <div class="card-label">Credit Card Review</div>
@@ -122,6 +130,16 @@
       </div>
     </div>
 
+    <!-- Card 2: Intercompany -->
+    <div class="card red">
+      <div class="card-icon">🔴</div>
+      <div class="card-label">Pending Intercompany</div>
+      <div class="card-count" id="count-intercompany">—</div>
+      <div class="card-sub">Transactions needing reconciliation</div>
+      <div class="card-breakdown" id="interco-breakdown"></div>
+    </div>
+
+    <!-- Card 3: COUPA -->
     <div class="card green">
       <div class="card-icon">📋</div>
       <div class="card-label">COUPA Reimbursements</div>
@@ -129,25 +147,30 @@
       <div class="card-sub">Pending submissions</div>
     </div>
 
+    <!-- Card 4: Other Reimbursements -->
     <div class="card purple">
       <div class="card-icon">💼</div>
       <div class="card-label">Other Reimbursements</div>
-      <div class="card-count" id="count-other" class="zero">—</div>
+      <div class="card-count" id="count-other">—</div>
       <div class="card-sub">Personal reimbursements pending</div>
+      <div class="card-breakdown" id="reimb-breakdown"></div>
     </div>
 
+    <!-- Card 5: Uncategorized -->
     <div class="card gray">
-      <div class="card-icon">⚠️</div>
+      <div class="card-icon">❓</div>
       <div class="card-label">Uncategorized</div>
       <div class="card-count" id="count-uncategorized">—</div>
-      <div class="card-sub">Transactions needing category</div>
+      <div class="card-sub">Need review & categorization</div>
+      <div class="card-breakdown" id="uncat-breakdown"></div>
     </div>
+
   </div>
 
-  <p class="updated" id="last-updated"></p>
+  <p class="updated" id="updated-at"></p>
 
   <script>
-    fetch('data.json?t=' + Date.now())
+    fetch('data.json', {cache: 'no-cache'})
       .then(r => r.json())
       .then(data => {
         function setCount(id, val) {
@@ -163,6 +186,7 @@
         setCount('count-other', data.other_reimbursements || 0);
         setCount('count-uncategorized', data.uncategorized || 0);
 
+        // Credit Card breakdown
         if (data.cards) {
           ['9197','1678','1006'].forEach(card => {
             const cd = data.cards[card];
@@ -178,6 +202,57 @@
           });
         }
 
+        // Intercompany entity breakdown
+        if (data.entities && data.entities.length) {
+          const bd = document.getElementById('interco-breakdown');
+          bd.innerHTML = '';
+          data.entities
+            .filter(e => e.pending > 0)
+            .sort((a, b) => b.pending - a.pending)
+            .forEach(e => {
+              const row = document.createElement('div');
+              row.className = 'breakdown-row';
+              const label = e.url
+                ? `<a href="${e.url}" target="_blank" class="bd-label bd-link">${e.label}</a>`
+                : `<span class="bd-label">${e.label}</span>`;
+              row.innerHTML = `${label}<span class="bd-count">${e.pending}</span>`;
+              bd.appendChild(row);
+            });
+        }
+
+        // Other Reimbursements breakdown
+        if (data.reimbursements) {
+          const bd = document.getElementById('reimb-breakdown');
+          bd.innerHTML = '';
+          Object.values(data.reimbursements).forEach(r => {
+            if (!r.pending) return;
+            const row = document.createElement('div');
+            row.className = 'breakdown-row';
+            const label = r.url
+              ? `<a href="${r.url}" target="_blank" class="bd-label bd-link">${r.label}</a>`
+              : `<span class="bd-label">${r.label}</span>`;
+            const amt = r.amount ? `<span class="bd-amount">$${r.amount.toFixed(2)}</span>` : '';
+            row.innerHTML = `${label}<span class="bd-count">${r.pending}${amt}</span>`;
+            bd.appendChild(row);
+          });
+        }
+
+        // Uncategorized breakdown (cards with uncategorized > 0)
+        if (data.cards) {
+          const bd = document.getElementById('uncat-breakdown');
+          bd.innerHTML = '';
+          Object.values(data.cards)
+            .filter(cd => cd.uncategorized > 0)
+            .sort((a, b) => b.uncategorized - a.uncategorized)
+            .forEach(cd => {
+              const row = document.createElement('div');
+              row.className = 'breakdown-row';
+              row.innerHTML = `<span class="bd-label">${cd.label}</span><span class="bd-count">${cd.uncategorized}</span>`;
+              bd.appendChild(row);
+            });
+        }
+
+        // Updated timestamp
         if (data.updated_at) {
           const d = new Date(data.updated_at);
           const formatted = d.toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) + ' at ' + d.toLocaleTimeString('en-US', {hour:'numeric',minute:'2-digit',timeZoneName:'short'});
