@@ -10,13 +10,11 @@ Required environment variables:
   TRANSACTIONS_DB -- Notion database ID for transactions
 
 Filters:
-  - COUPA        : PLACE Reimbursable = true AND Reconciled = false AND Card not empty
-  - Intercompany : Intercompany = true AND Reconciled = false AND Card not empty
-  - Credit Card  : sum of per-card totals (ALL unreconciled per card, any type)
-  - Banking      : hardcoded 0
-  - Uncategorized: Category empty AND Reconciled = false AND Card not empty
-                   AND PLACE Reimbursable = false AND Intercompany = false
-  - Other Reimb. : hardcoded 0 (Russ & Matt section, manual for now)
+  - COUPA        : PLACE Reimbursable = true AND PLACE Status != Reimbursed AND PLACE Status != Accepted
+  - Intercompany : Intercompany = true AND Reconciled = false
+  - Credit Card  : (PLACE Reimbursable = true AND Reconciled = false) OR (Intercompany = true AND Reconciled = false)
+  - Banking      : Card empty AND Intercompany = false AND Reconciled = false AND PLACE Reimbursable = false
+  - Uncategorized: Category = Uncategorized AND Reconciled = false
 """
 
 import os
@@ -28,201 +26,164 @@ from datetime import datetime, timezone
 NOTION_TOKEN = os.environ["NOTION_TOKEN"]
 TRANSACTIONS_DB = os.environ["TRANSACTIONS_DB"]
 
-HEADERS = {
-    "Authorization": f"Bearer {NOTION_TOKEN}",
-    "Notion-Version": "2022-06-28",
-    "Content-Type": "application/json",
-}
-
-# Credit card page IDs -- Pending Count on each card page is auto-updated each run
+# last4 -> Notion page ID for each credit card
 CARDS = {
     "9197": "318f7b005e9781e1bcd2dd299f5353f7",
     "1678": "318f7b005e978133ba7bd576da00462d",
+    "1004": "318f7b005e97810c8594c57654408bed",
     "1006": "318f7b005e97816b9e4ac0a806ccedbd",
 }
 
-CARD_LABELS = {
-    "9197": "Chase Ink Unlimited (...9197)",
-    "1678": "Chase Ink (...1678)",
-    "1006": "AMEX (...1006)",
+HEADERS = {
+    "Authorization": f"Bearer {NOTION_TOKEN}",
+    "Content-Type": "application/json",
+    "Notion-Version": "2022-06-28",
 }
 
 
-def query_database(db_id, filter_body):
-    """Query a Notion database with a filter and return the total result count."""
+def query_database(db_id, filter_obj):
+    """Return total number of pages matching filter_obj in db_id."""
     url = f"https://api.notion.com/v1/databases/{db_id}/query"
-    count = 0
+    total = 0
     has_more = True
     start_cursor = None
+
     while has_more:
-        body = {"filter": filter_body, "page_size": 100}
+        payload = {"filter": filter_obj, "page_size": 100}
         if start_cursor:
-            body["start_cursor"] = start_cursor
-        req = urllib.request.Request(
-            url, data=json.dumps(body).encode(), headers=HEADERS, method="POST"
-        )
+            payload["start_cursor"] = start_cursor
+
+        data = json.dumps(payload).encode()
+        req = urllib.request.Request(url, data=data, headers=HEADERS, method="POST")
         try:
             with urllib.request.urlopen(req) as resp:
-                data = json.loads(resp.read())
-                count += len(data.get("results", []))
-                has_more = data.get("has_more", False)
-                start_cursor = data.get("next_cursor")
+                body = json.loads(resp.read())
         except urllib.error.HTTPError as e:
-            print(f"  HTTP error {e.code}: {e.read().decode()}")
-            return 0
-    return count
+            print(f"HTTP {e.code} querying {db_id}: {e.read().decode()}")
+            raise
+
+        total += len(body.get("results", []))
+        has_more = body.get("has_more", False)
+        start_cursor = body.get("next_cursor")
+
+    return total
 
 
-def update_page_number(page_id, prop_name, value):
-    """Update a number property on a Notion page."""
+def update_page_property(page_id, prop_name, value):
+    """Set a number property on a Notion page."""
     url = f"https://api.notion.com/v1/pages/{page_id}"
-    body = {"properties": {prop_name: {"number": value}}}
-    req = urllib.request.Request(
-        url, data=json.dumps(body).encode(), headers=HEADERS, method="PATCH"
-    )
+    payload = {"properties": {prop_name: {"number": value}}}
+    data = json.dumps(payload).encode()
+    req = urllib.request.Request(url, data=data, headers=HEADERS, method="PATCH")
     try:
         with urllib.request.urlopen(req) as resp:
             resp.read()
     except urllib.error.HTTPError as e:
-        print(f"  Failed to update {page_id}: {e.code} {e.read().decode()}")
+        print(f"HTTP {e.code} updating page {page_id}: {e.read().decode()}")
+        raise
 
 
 def main():
-    # ------------------------------------------------------------------
-    # 1. COUPA Reimbursements
-    #    PLACE Reimbursable = true AND Reconciled = false AND Card not empty
-    # ------------------------------------------------------------------
+    # --- Intercompany ---
+    interco_filter = {
+        "and": [
+            {"property": "Intercompany", "checkbox": {"equals": True}},
+            {"property": "Reconciled", "checkbox": {"equals": False}},
+        ]
+    }
+    intercompany = query_database(TRANSACTIONS_DB, interco_filter)
+    print(f"Intercompany: {intercompany}")
+
+    # --- COUPA ---
     coupa_filter = {
         "and": [
             {"property": "PLACE Reimbursable", "checkbox": {"equals": True}},
-            {"property": "Reconciled",         "checkbox": {"equals": False}},
-            {"property": "Card",               "relation": {"is_not_empty": True}},
+            {"property": "PLACE Status", "select": {"does_not_equal": "Reimbursed"}},
+            {"property": "PLACE Status", "select": {"does_not_equal": "Accepted"}},
         ]
     }
+    coupa = query_database(TRANSACTIONS_DB, coupa_filter)
+    print(f"COUPA: {coupa}")
 
-    # ------------------------------------------------------------------
-    # 2. Intercompany
-    #    Intercompany = true AND Reconciled = false AND Card not empty
-    # ------------------------------------------------------------------
-    intercompany_filter = {
+    # --- Credit Card total ---
+    cc_filter = {
+        "or": [
+            {
+                "and": [
+                    {"property": "PLACE Reimbursable", "checkbox": {"equals": True}},
+                    {"property": "Reconciled", "checkbox": {"equals": False}},
+                ]
+            },
+            {
+                "and": [
+                    {"property": "Intercompany", "checkbox": {"equals": True}},
+                    {"property": "Reconciled", "checkbox": {"equals": False}},
+                ]
+            },
+        ]
+    }
+    cc = query_database(TRANSACTIONS_DB, cc_filter)
+    print(f"Credit Card total: {cc}")
+
+    # --- Banking ---
+    banking_filter = {
         "and": [
-            {"property": "Intercompany", "checkbox": {"equals": True}},
-            {"property": "Reconciled",   "checkbox": {"equals": False}},
-            {"property": "Card",         "relation": {"is_not_empty": True}},
+            {"property": "Card", "relation": {"is_empty": True}},
+            {"property": "Intercompany", "checkbox": {"equals": False}},
+            {"property": "Reconciled", "checkbox": {"equals": False}},
+            {"property": "PLACE Reimbursable", "checkbox": {"equals": False}},
         ]
     }
+    banking = query_database(TRANSACTIONS_DB, banking_filter)
+    print(f"Banking: {banking}")
 
-    # ------------------------------------------------------------------
-    # 3. Uncategorized
-    #    Card not empty AND Reconciled = false AND PLACE Reimbursable = false
-    #    AND Intercompany = false AND Category is empty
-    # ------------------------------------------------------------------
+    # --- Uncategorized ---
     uncategorized_filter = {
         "and": [
-            {"property": "Card",               "relation": {"is_not_empty": True}},
-            {"property": "Reconciled",         "checkbox": {"equals": False}},
-            {"property": "PLACE Reimbursable", "checkbox": {"equals": False}},
-            {"property": "Intercompany",       "checkbox": {"equals": False}},
-            {"property": "Category",           "select":   {"is_empty": True}},
+            {"property": "Category", "select": {"equals": "Uncategorized"}},
+            {"property": "Reconciled", "checkbox": {"equals": False}},
         ]
     }
-
-    print("Fetching COUPA count...")
-    coupa = query_database(TRANSACTIONS_DB, coupa_filter)
-    print(f"  -> {coupa}")
-
-    print("Fetching Intercompany count...")
-    intercompany = query_database(TRANSACTIONS_DB, intercompany_filter)
-    print(f"  -> {intercompany}")
-
-    print("Fetching Uncategorized count...")
     uncategorized = query_database(TRANSACTIONS_DB, uncategorized_filter)
-    print(f"  -> {uncategorized}")
+    print(f"Uncategorized: {uncategorized}")
 
-    # ------------------------------------------------------------------
-    # 4. Per-card counts -- ALL unreconciled transactions per card
-    #    (includes COUPA, intercompany, and pure CC)
-    # ------------------------------------------------------------------
-    cards_data = {}
-    cc_total = 0
-
+    # --- Update Pending Count on each Credit Card page ---
     for last4, page_id in CARDS.items():
-        print(f"Fetching totals for card ...{last4}...")
-
-        # Intercompany sub-count for this card
-        card_interco_filter = {
+        place_filter = {
             "and": [
-                {"property": "Card",         "relation": {"contains": page_id}},
-                {"property": "Reconciled",   "checkbox": {"equals": False}},
-                {"property": "Intercompany", "checkbox": {"equals": True}},
-            ]
-        }
-        interco = query_database(TRANSACTIONS_DB, card_interco_filter)
-        print(f"  interco -> {interco}")
-
-        # COUPA sub-count for this card
-        card_coupa_filter = {
-            "and": [
-                {"property": "Card",               "relation": {"contains": page_id}},
-                {"property": "Reconciled",         "checkbox": {"equals": False}},
+                {"property": "Card", "relation": {"contains": page_id}},
                 {"property": "PLACE Reimbursable", "checkbox": {"equals": True}},
+                {"property": "Reconciled", "checkbox": {"equals": False}},
             ]
         }
-        coupa_card = query_database(TRANSACTIONS_DB, card_coupa_filter)
-        print(f"  coupa   -> {coupa_card}")
-
-        # Uncategorized sub-count for this card
-        card_uncat_filter = {
+        interco_card_filter = {
             "and": [
-                {"property": "Card",               "relation": {"contains": page_id}},
-                {"property": "Reconciled",         "checkbox": {"equals": False}},
-                {"property": "PLACE Reimbursable", "checkbox": {"equals": False}},
-                {"property": "Intercompany",       "checkbox": {"equals": False}},
-                {"property": "Category",           "select":   {"is_empty": True}},
+                {"property": "Card", "relation": {"contains": page_id}},
+                {"property": "Intercompany", "checkbox": {"equals": True}},
+                {"property": "Reconciled", "checkbox": {"equals": False}},
             ]
         }
-        uncat = query_database(TRANSACTIONS_DB, card_uncat_filter)
-        print(f"  uncat   -> {uncat}")
+        count = (
+            query_database(TRANSACTIONS_DB, place_filter)
+            + query_database(TRANSACTIONS_DB, interco_card_filter)
+        )
+        print(f"Card {last4}: {count} pending")
+        update_page_property(page_id, "Pending Count", count)
 
-        cards_data[last4] = {
-            "label":         CARD_LABELS.get(last4, f"Card ...{last4}"),
-            "pending":       interco + coupa_card,
-            "interco":       interco,
-            "coupa":         coupa_card,
-            "uncategorized": uncat,
-        }
-        cc_total += (interco + coupa_card)
-
-    print(f"CC total: {cc_total}")
-
-    # ------------------------------------------------------------------
-    # 5. Write data.json
-    # ------------------------------------------------------------------
+    # --- Write data.json ---
     result = {
-        "intercompany":         intercompany,
-        "credit_card":          cc_total,
-        "banking":              0,
-        "coupa":                coupa,
-        "other_reimbursements": 0,
-        "uncategorized":        uncategorized,
-        "cards":                cards_data,
-        "updated_at":           datetime.now(timezone.utc).isoformat(),
+        "intercompany": intercompany,
+        "credit_card": cc,
+        "banking": banking,
+        "coupa": coupa,
+        "uncategorized": uncategorized,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    with open("data.json", "w") as f:
+    out_path = os.path.join(os.path.dirname(__file__), "..", "data.json")
+    with open(out_path, "w") as f:
         json.dump(result, f, indent=2)
-    print(f"\n  data.json written: {result}")
-
-    # ------------------------------------------------------------------
-    # 6. Update Pending Count on each Credit Card page in Notion
-    # ------------------------------------------------------------------
-    print("\nUpdating Pending Count on Credit Card pages...")
-    for last4, page_id in CARDS.items():
-        count = cards_data[last4]["pending"]
-        print(f"  Setting ...{last4} Pending Count = {count}")
-        update_page_number(page_id, "Pending Count", count)
-
-    print("\nDone.")
+    print("Wrote data.json:", result)
 
 
 if __name__ == "__main__":
