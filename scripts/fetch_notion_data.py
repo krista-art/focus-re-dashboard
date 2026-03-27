@@ -15,6 +15,10 @@ Filters:
   - Credit Card  : (PLACE Reimbursable = true AND Reconciled = false) OR (Intercompany = true AND Reconciled = false)
   - Banking      : Card empty AND Intercompany = false AND Reconciled = false AND PLACE Reimbursable = false
   - Uncategorized: Category = Uncategorized AND Reconciled = false
+
+Note: The script merges its computed counts into the existing data.json,
+preserving manually-maintained fields (cards, entities, reimbursements,
+other_reimbursements) that are not auto-computed here.
 """
 
 import os
@@ -26,6 +30,12 @@ from datetime import datetime, timezone
 NOTION_TOKEN = os.environ["NOTION_TOKEN"]
 TRANSACTIONS_DB = os.environ["TRANSACTIONS_DB"]
 
+HEADERS = {
+    "Authorization": f"Bearer {NOTION_TOKEN}",
+    "Notion-Version": "2022-06-28",
+    "Content-Type": "application/json",
+}
+
 # last4 -> Notion page ID for each credit card
 CARDS = {
     "9197": "318f7b005e9781e1bcd2dd299f5353f7",
@@ -34,67 +44,54 @@ CARDS = {
     "1006": "318f7b005e97816b9e4ac0a806ccedbd",
 }
 
-HEADERS = {
-    "Authorization": f"Bearer {NOTION_TOKEN}",
-    "Content-Type": "application/json",
-    "Notion-Version": "2022-06-28",
-}
 
-
-def query_database(db_id, filter_obj):
-    """Return total number of pages matching filter_obj in db_id."""
+def query_database(db_id: str, filter_body: dict) -> int:
+    """Query a Notion database with a filter and return the total result count."""
     url = f"https://api.notion.com/v1/databases/{db_id}/query"
-    total = 0
+    count = 0
     has_more = True
     start_cursor = None
 
     while has_more:
-        payload = {"filter": filter_obj, "page_size": 100}
+        body = {"filter": filter_body, "page_size": 100}
         if start_cursor:
-            payload["start_cursor"] = start_cursor
+            body["start_cursor"] = start_cursor
 
-        data = json.dumps(payload).encode()
-        req = urllib.request.Request(url, data=data, headers=HEADERS, method="POST")
+        req = urllib.request.Request(
+            url, data=json.dumps(body).encode(), headers=HEADERS, method="POST"
+        )
         try:
             with urllib.request.urlopen(req) as resp:
-                body = json.loads(resp.read())
+                data = json.loads(resp.read())
         except urllib.error.HTTPError as e:
-            print(f"HTTP {e.code} querying {db_id}: {e.read().decode()}")
+            print(f"Notion API error {e.code}: {e.read().decode()}")
             raise
 
-        total += len(body.get("results", []))
-        has_more = body.get("has_more", False)
-        start_cursor = body.get("next_cursor")
+        count += len(data.get("results", []))
+        has_more = data.get("has_more", False)
+        start_cursor = data.get("next_cursor")
 
-    return total
+    return count
 
 
-def update_page_property(page_id, prop_name, value):
-    """Set a number property on a Notion page."""
+def update_page_property(page_id: str, prop_name: str, value: int) -> None:
+    """Update a number property on a Notion page."""
     url = f"https://api.notion.com/v1/pages/{page_id}"
-    payload = {"properties": {prop_name: {"number": value}}}
-    data = json.dumps(payload).encode()
-    req = urllib.request.Request(url, data=data, headers=HEADERS, method="PATCH")
+    body = {"properties": {prop_name: {"number": value}}}
+    req = urllib.request.Request(
+        url, data=json.dumps(body).encode(), headers=HEADERS, method="PATCH"
+    )
     try:
         with urllib.request.urlopen(req) as resp:
             resp.read()
     except urllib.error.HTTPError as e:
-        print(f"HTTP {e.code} updating page {page_id}: {e.read().decode()}")
-        raise
+        print(f"  Could not update page {page_id}: {e.code} {e.read().decode()}")
 
 
 def main():
-    # --- Intercompany ---
-    interco_filter = {
-        "and": [
-            {"property": "Intercompany", "checkbox": {"equals": True}},
-            {"property": "Reconciled", "checkbox": {"equals": False}},
-        ]
-    }
-    intercompany = query_database(TRANSACTIONS_DB, interco_filter)
-    print(f"Intercompany: {intercompany}")
-
-    # --- COUPA ---
+    # ------------------------------------------------------------------ #
+    # 1. COUPA                                                             #
+    # ------------------------------------------------------------------ #
     coupa_filter = {
         "and": [
             {"property": "PLACE Reimbursable", "checkbox": {"equals": True}},
@@ -102,10 +99,20 @@ def main():
             {"property": "PLACE Status", "select": {"does_not_equal": "Accepted"}},
         ]
     }
-    coupa = query_database(TRANSACTIONS_DB, coupa_filter)
-    print(f"COUPA: {coupa}")
 
-    # --- Credit Card total ---
+    # ------------------------------------------------------------------ #
+    # 2. Intercompany                                                      #
+    # ------------------------------------------------------------------ #
+    intercompany_filter = {
+        "and": [
+            {"property": "Intercompany", "checkbox": {"equals": True}},
+            {"property": "Reconciled", "checkbox": {"equals": False}},
+        ]
+    }
+
+    # ------------------------------------------------------------------ #
+    # 3. Credit Card total                                                 #
+    # ------------------------------------------------------------------ #
     cc_filter = {
         "or": [
             {
@@ -122,32 +129,77 @@ def main():
             },
         ]
     }
-    cc = query_database(TRANSACTIONS_DB, cc_filter)
-    print(f"Credit Card total: {cc}")
 
-    # --- Banking ---
+    # ------------------------------------------------------------------ #
+    # 4. Banking                                                           #
+    # ------------------------------------------------------------------ #
     banking_filter = {
         "and": [
             {"property": "Card", "relation": {"is_empty": True}},
             {"property": "Intercompany", "checkbox": {"equals": False}},
-            {"property": "Reconciled", "checkbox": {"equals": False}},
             {"property": "PLACE Reimbursable", "checkbox": {"equals": False}},
+            {"property": "Reconciled", "checkbox": {"equals": False}},
         ]
     }
-    banking = query_database(TRANSACTIONS_DB, banking_filter)
-    print(f"Banking: {banking}")
 
-    # --- Uncategorized ---
+    # ------------------------------------------------------------------ #
+    # 5. Uncategorized                                                     #
+    # ------------------------------------------------------------------ #
     uncategorized_filter = {
         "and": [
             {"property": "Category", "select": {"equals": "Uncategorized"}},
             {"property": "Reconciled", "checkbox": {"equals": False}},
         ]
     }
-    uncategorized = query_database(TRANSACTIONS_DB, uncategorized_filter)
-    print(f"Uncategorized: {uncategorized}")
 
-    # --- Update Pending Count on each Credit Card page ---
+    print("Fetching COUPA count...")
+    coupa = query_database(TRANSACTIONS_DB, coupa_filter)
+    print(f" -> {coupa}")
+
+    print("Fetching Intercompany count...")
+    intercompany = query_database(TRANSACTIONS_DB, intercompany_filter)
+    print(f" -> {intercompany}")
+
+    print("Fetching Credit Card count...")
+    cc = query_database(TRANSACTIONS_DB, cc_filter)
+    print(f" -> {cc}")
+
+    print("Fetching Banking count...")
+    banking = query_database(TRANSACTIONS_DB, banking_filter)
+    print(f" -> {banking}")
+
+    print("Fetching Uncategorized count...")
+    uncategorized = query_database(TRANSACTIONS_DB, uncategorized_filter)
+    print(f" -> {uncategorized}")
+
+    # ------------------------------------------------------------------ #
+    # 6. Merge into existing data.json — preserve manually-managed fields #
+    # ------------------------------------------------------------------ #
+    data_path = "data.json"
+    try:
+        with open(data_path) as f:
+            existing = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        existing = {}
+
+    existing.update({
+        "intercompany": intercompany,
+        "credit_card": cc,
+        "banking": banking,
+        "coupa": coupa,
+        "uncategorized": uncategorized,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+    with open(data_path, "w") as f:
+        json.dump(existing, f, indent=2)
+    print(f"\n data.json written with counts: intercompany={intercompany}, "
+          f"cc={cc}, banking={banking}, coupa={coupa}, uncategorized={uncategorized}")
+
+    # ------------------------------------------------------------------ #
+    # 7. Update Pending Count on each Credit Card page in Notion           #
+    # ------------------------------------------------------------------ #
+    print("\nUpdating Pending Count on Credit Card pages...")
     for last4, page_id in CARDS.items():
         place_filter = {
             "and": [
@@ -156,7 +208,7 @@ def main():
                 {"property": "Reconciled", "checkbox": {"equals": False}},
             ]
         }
-        interco_card_filter = {
+        interco_filter = {
             "and": [
                 {"property": "Card", "relation": {"contains": page_id}},
                 {"property": "Intercompany", "checkbox": {"equals": True}},
@@ -165,25 +217,12 @@ def main():
         }
         count = (
             query_database(TRANSACTIONS_DB, place_filter)
-            + query_database(TRANSACTIONS_DB, interco_card_filter)
+            + query_database(TRANSACTIONS_DB, interco_filter)
         )
-        print(f"Card {last4}: {count} pending")
+        print(f"  Card {last4}: {count} pending -> updating Notion...")
         update_page_property(page_id, "Pending Count", count)
 
-    # --- Write data.json ---
-    result = {
-        "intercompany": intercompany,
-        "credit_card": cc,
-        "banking": banking,
-        "coupa": coupa,
-        "uncategorized": uncategorized,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-    }
-
-    out_path = os.path.join(os.path.dirname(__file__), "..", "data.json")
-    with open(out_path, "w") as f:
-        json.dump(result, f, indent=2)
-    print("Wrote data.json:", result)
+    print("\n All done.")
 
 
 if __name__ == "__main__":
