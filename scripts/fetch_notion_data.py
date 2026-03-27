@@ -127,12 +127,17 @@ def main():
     }
 
     # ------------------------------------------------------------------
-    # 4. Uncategorized — Category = "Uncategorized" AND Reconciled = false
+    # 4. Uncategorized
+    #    Card not empty AND Reconciled = false AND PLACE Reimbursable = false
+    #    AND Intercompany = false AND Category is empty
     # ------------------------------------------------------------------
     uncategorized_filter = {
         "and": [
-            {"property": "Category",   "select":   {"equals": "Uncategorized"}},
-            {"property": "Reconciled", "checkbox": {"equals": False}}
+            {"property": "Card",               "relation":  {"is_not_empty": True}},
+            {"property": "Reconciled",         "checkbox":  {"equals": False}},
+            {"property": "PLACE Reimbursable", "checkbox":  {"equals": False}},
+            {"property": "Intercompany",       "checkbox":  {"equals": False}},
+            {"property": "Category",           "select":    {"is_empty": True}}
         ]
     }
 
