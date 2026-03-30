@@ -1,8 +1,8 @@
 {
-  "intercompany": 101,
+  "intercompany": 93,
   "credit_card": 106,
   "banking": 9,
-  "coupa": 14,
+  "coupa": 13,
   "other_reimbursements": 5,
   "uncategorized": 2,
   "cards": {
@@ -84,5 +84,5 @@
       "url": "https://www.notion.so/330f7b005e9781aea033dc63d83100fe"
     }
   },
-  "updated_at": "2026-03-30T21:08:54.704065+00:00"
+  "updated_at": "2026-03-30T23:52:19.241675+00:00"
 }
