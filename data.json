@@ -1,10 +1,10 @@
 {
-  "intercompany": 57,
-  "credit_card": 69,
-  "banking": 9,
+  "intercompany": 55,
+  "credit_card": 67,
+  "banking": 10,
   "coupa": 12,
   "other_reimbursements": 5,
-  "uncategorized": 2,
+  "uncategorized": 0,
   "cards": {
     "9197": {
       "label": "Chase Ink Unlimited (...9197)",
@@ -84,5 +84,5 @@
       "url": "https://www.notion.so/330f7b005e9781aea033dc63d83100fe"
     }
   },
-  "updated_at": "2026-04-03T21:06:10.844193+00:00"
+  "updated_at": "2026-04-03T23:05:12.266483+00:00"
 }
